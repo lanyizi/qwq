@@ -1,0 +1,28 @@
+{
+  "name": "lanyi-forward-bot",
+  "version": "0.0.1",
+  "description": "用来在 mirai 上跨群转发消息的机器人，虽然很可能已经有人写了但反正我就是想试试！",
+  "main": "index.ts",
+  "dependencies": {
+    "async-mutex": "^0.2.6",
+    "mirai-ts": "^0.8.1",
+    "yargs": "^16.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^14.14.19",
+    "@types/yargs": "^15.0.12"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/BSG-75/qwq.git"
+  },
+  "author": "lanyi",
+  "license": "AGPL-3.0",
+  "bugs": {
+    "url": "https://github.com/BSG-75/qwq/issues"
+  },
+  "homepage": "https://github.com/BSG-75/qwq#readme"
+}
