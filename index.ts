@@ -2,6 +2,8 @@ import MiraiTs, { MiraiApiHttpConfig } from 'mirai-ts'
 import { Mutex } from 'async-mutex'
 import yargs from 'yargs'
 import { readFileSync } from 'fs'
+import { Member } from 'mirai-ts/dist/types/contact'
+import { Plain } from 'mirai-ts/dist/types/message-type'
 
 const args = yargs.option('config', {
   alias: 'c',
@@ -75,14 +77,22 @@ async function app() {
   // 登录 QQ
   await mirai.link(qq);
 
+  const groups = groupNumbers.map(group => ({
+    group,
+    members: new Map<number, string>(),
+    stored: new StoredMessages(),
+    async updateMemberList() {
+      const list: Member[] = await mirai.api.memberList(this.group)
+      this.members = new Map(list.map(m => [m.id, m.memberName]))
+    }
+  }));
+  // 保存成员列表
+  await Promise.all(groups.map(g => g.updateMemberList()))
+
+  const mutex = new Mutex()
   // 对收到的消息进行处理
   // message 本质相当于同时绑定了 FriendMessage GroupMessage TempMessage
   // 你也可以单独对某一类消息进行监听
-  const groups = groupNumbers.map(group => ({
-    group,
-    stored: new StoredMessages()
-  }));
-  const mutex = new Mutex()
   mirai.on('GroupMessage', async (msg) => {
     const fromGroup = msg.sender.group.id
     if (!groups.find(({ group }) => group === fromGroup)) {
@@ -90,15 +100,13 @@ async function app() {
     }
     const messageId = msg.messageChain[0].id
     const messageAuthor = msg.sender.id
-    const originalGroupStorage = groups
-      .find(({ group }) => group === fromGroup)
-      ?.stored;
+    const originalGroup = groups.find(({ group }) => group === fromGroup)
 
     const releaseMutex = await mutex.acquire()
     try {
       const promises = groups
         .filter(({ group }) => group !== fromGroup)
-        .map(async ({ group, stored }) => {
+        .map(async ({ group, stored, members }) => {
           let quote: StoredMessage | undefined
           let atMeCounter = 0
           const processed = msg.messageChain.filter(x => {
@@ -125,30 +133,39 @@ async function app() {
             if (x.target === qq) {
               x = { ...x, target: quote?.author || qq }
             }
-            /*
-            // 处理转发之后 At 可能由于对象不在转发的群里而出现的问题
-            const plain: Plain = { type: 'Plain', text: `@${x.display}` }
-            try {
-              mirai.api.memberList
-              const info: MemberInfo = await mirai.api.memberInfo(group, x.target, undefined as unknown as MemberInfo)
-              if (typeof info.name !== 'string') {
-                return plain
+
+            // 转发的消息不应该继续 @ 人，因为人可能并不在被转发的群
+            // 就算在，被好几个群同时 @，也很奇怪（
+            // 因此，除非是为了回复的 @，否则一律转成纯文本
+            // 就算确实是为了回复的 @，假如转发的群里这个人不在，那也转成纯文本
+            if (x.target !== quote?.author || !members.has(x.target)) {
+              // 把 @ 转换成纯文本的时候，优先使用哪个群里的群名片
+              const searchFrom = originalGroup
+                ? [members, originalGroup.members]
+                : [members]
+              searchFrom.push(...groups.map(x => x.members))
+
+              let name = x.display
+              for (const members of searchFrom) {
+                const match = members.get(x.target)
+                if (match) {
+                  name = match
+                  break
+                }
               }
+
+              return { type: 'Plain' as const, text: `@${name}` }
             }
-            catch {
-              return plain
-            }
-            */
+
             return x
           })
 
           try {
-            const chain = await Promise.all(processed)
-            const sent = await mirai.api.sendGroupMessage(chain, group, quote?.id)
+            const sent = await mirai.api.sendGroupMessage(processed, group, quote?.id)
             return { sentId: sent.messageId, targetStorage: stored }
           }
           catch (e) {
-            console.warn(e)
+            console.warn(`${JSON.stringify(e)}; type = ${typeof e}; ${e.constructor?.name}`)
           }
         })
 
@@ -160,7 +177,7 @@ async function app() {
           targetStorage.add(other.sentId, { author: messageAuthor, id: sentId })
         }
         targetStorage.add(messageId, { author: messageAuthor, id: sentId })
-        originalGroupStorage?.add(sentId, { author: messageAuthor, id: messageId })
+        originalGroup?.stored?.add(sentId, { author: messageAuthor, id: messageId })
       }
     }
     finally {
