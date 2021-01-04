@@ -94,7 +94,7 @@ async function app() {
   // 对收到的消息进行处理
   // message 本质相当于同时绑定了 FriendMessage GroupMessage TempMessage
   // 你也可以单独对某一类消息进行监听
-  mirai.on('GroupMessage', async (msg) => {
+  mirai.on('GroupMessage', async msg => {
     const fromGroup = msg.sender.group.id
     if (!groups.find(({ group }) => group === fromGroup)) {
       return
@@ -154,7 +154,7 @@ async function app() {
             // 因此，除非是为了回复的 @，否则一律转成纯文本
             // 就算确实是为了回复的 @，假如转发的群里这个人不在，那也转成纯文本
             // 此外，假如是回复的 @，但是这并不是回复对象的那个群，那么也转成纯文本
-            if (x.target !== quote?.author || 
+            if (x.target !== quote?.author ||
               !members.has(x.target) ||
               !quote.isOriginal) {
               // 把 @ 转换成纯文本的时候，优先使用哪个群里的群名片
@@ -204,25 +204,36 @@ async function app() {
       }
     }
     finally {
-      releaseMutex();
+      releaseMutex()
     }
   })
-
-  // 调用 mirai-ts 封装的 mirai-api-http 发送指令
-  /*console.log("send command help");
-  const data = await mirai.api.command.send("help", []);
-  console.log("帮助信息:" + data);*/
 
   // 处理各种事件类型
   // 事件订阅说明（名称均与 mirai-api-http 中事件名一致）
   // https://github.com/RedBeanN/node-mirai/blob/master/event.md
   // console.log("on other event");
   // https://github.com/project-mirai/mirai-api-http/blob/master/EventType.md#群消息撤回
-  mirai.on("GroupRecallEvent", ({ operator }) => {
-    if (operator) {
-      const text = `${operator.memberName} 撤回了一条消息，并拜托你不要再发色图了。`;
-      console.log(text);
-      mirai.api.sendGroupMessage(text, operator.group.id);
+  mirai.on('GroupRecallEvent', async event => {
+    const releaseMutex = await mutex.acquire()
+    try {
+      for (const group of groups) {
+        if (group.group === event.group.id) {
+          continue
+        }
+        const matched = group.stored.translate(event.messageId)
+        if (!matched) {
+          continue
+        }
+        try {
+          await mirai.api.recall(matched.id)
+        }
+        catch (e) {
+          console.warn(e)
+        }
+      }
+    }
+    finally {
+      releaseMutex()
     }
   });
 
