@@ -222,11 +222,8 @@ async function app() {
     const releaseMutex = await mutex.acquire()
     try {
       for (const group of groups) {
-        if (group.group === event.group.id) {
-          continue
-        }
         const matched = group.stored.translate(event.messageId)
-        if (!matched) {
+        if (!matched || matched.isOriginal) {
           continue
         }
         try {
