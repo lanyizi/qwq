@@ -2,7 +2,7 @@
   "name": "lanyi-forward-bot",
   "version": "0.0.1",
   "description": "用来在 mirai 上跨群转发消息的机器人，虽然很可能已经有人写了但反正我就是想试试！",
-  "main": "index.ts",
+  "main": "index.js",
   "dependencies": {
     "async-mutex": "^0.2.6",
     "mirai-ts": "^0.8.1",
