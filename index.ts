@@ -129,13 +129,18 @@ async function app() {
 
           let isQuote = false
           let quote: StoredMessage | undefined
-          let atMeCounter = 0
+          let previousAt: number | undefined
+          let atCounter = 0
           const processed = msg.messageChain.filter(x => {
             // 处理 @
             if (x.type === 'At') {
-              // 避免转发回复时的 @
-              if ((quote || isQuote) && x.target === botQQ) {
-                return atMeCounter++ === 0
+              // 避免转发回复时重复的 @
+              if (quote || isQuote) {
+                if (previousAt !== x.target) {
+                  atCounter = previousAt === undefined ? 0 : NaN
+                }
+                previousAt = x.target
+                return ++atCounter !== 2
               }
               return true
             }
