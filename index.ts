@@ -28,7 +28,8 @@ export const getTypeChecker = <D extends Definition>(d: D) => {
 const configDefinition = {
   qq: (x: unknown): x is number => typeof x === 'number',
   mahConfig: (x: unknown): x is MiraiApiHttpConfig => typeof x === 'object',
-  groups: (x: unknown): x is number[] => Array.isArray(x) && x.every(e => typeof e === 'number')
+  groups: (x: unknown): x is number[] => Array.isArray(x) && x.every(e => typeof e === 'number'),
+  excludeQQ: (x: unknown): x is number[] => Array.isArray(x) && x.every(e => typeof e === 'number'),
 }
 const parseConfig = () => {
   if (typeof args.config !== 'string') {
@@ -42,7 +43,7 @@ const parseConfig = () => {
   return parsed
 }
 
-const { qq: botQQ, mahConfig, groups: groupNumbers } = parseConfig();
+const { qq: botQQ, mahConfig, groups: groupNumbers, excludeQQ } = parseConfig();
 const mirai = new MiraiTs(mahConfig)
 
 type StoredMessage = {
@@ -102,6 +103,10 @@ async function app() {
     const messageId = msg.messageChain[0].id
     const messageAuthor = msg.sender.id
     const originalGroup = groups.find(({ group }) => group === fromGroup)
+
+    if (excludeQQ.includes(messageAuthor)) {
+      return
+    }
 
     const releaseMutex = await mutex.acquire()
     try {
@@ -239,10 +244,6 @@ async function app() {
 
   // 开始监听
   mirai.listen();
-  // 可传入回调函数对监听的函数进行处理，如：
-  // mirai.listen((msg) => {
-  //   console.log(msg)
-  // })
 }
 
 app();
