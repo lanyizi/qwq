@@ -46,8 +46,9 @@ const { qq: botQQ, mahConfig, groups: groupNumbers } = parseConfig();
 const mirai = new MiraiTs(mahConfig)
 
 type StoredMessage = {
-  id: number
   author: number
+  id: number
+  isOriginal: boolean
 }
 
 class StoredMessages {
@@ -152,7 +153,10 @@ async function app() {
             // 就算在，被好几个群同时 @，也很奇怪（
             // 因此，除非是为了回复的 @，否则一律转成纯文本
             // 就算确实是为了回复的 @，假如转发的群里这个人不在，那也转成纯文本
-            if (x.target !== quote?.author || !members.has(x.target)) {
+            // 此外，假如是回复的 @，但是这并不是回复对象的那个群，那么也转成纯文本
+            if (x.target !== quote?.author || 
+              !members.has(x.target) ||
+              !quote.isOriginal) {
               // 把 @ 转换成纯文本的时候，优先使用哪个群里的群名片
               const name = qqToName(x.target) || x.display
               return { type: 'Plain' as const, text: `@${name}` }
@@ -162,7 +166,7 @@ async function app() {
           })
 
           const authorName = qqToName(messageAuthor)
-          if(authorName !== undefined) {
+          if (authorName !== undefined) {
             if (processed[1]?.type !== 'Plain') {
               processed.splice(1, 0, { type: 'Plain', text: '' })
             }
@@ -175,7 +179,7 @@ async function app() {
             return { sentId: sent.messageId, targetStorage: stored }
           }
           catch (e) {
-            console.warn(`${JSON.stringify(e)}; type = ${typeof e}; ${e.constructor?.name}`)
+            console.warn(e)
           }
         })
 
@@ -183,11 +187,20 @@ async function app() {
         .filter(<T>(x?: T): x is T => x !== undefined)
       for (const { sentId, targetStorage } of results) {
         const others = results.filter(other => other.targetStorage !== targetStorage)
-        for (const other of others) {
-          targetStorage.add(other.sentId, { author: messageAuthor, id: sentId })
+        const forwarded: StoredMessage = {
+          author: messageAuthor,
+          id: sentId,
+          isOriginal: false
         }
-        targetStorage.add(messageId, { author: messageAuthor, id: sentId })
-        originalGroup?.stored?.add(sentId, { author: messageAuthor, id: messageId })
+        for (const other of others) {
+          targetStorage.add(other.sentId, forwarded)
+        }
+        targetStorage.add(messageId, forwarded)
+        originalGroup?.stored?.add(sentId, {
+          author: messageAuthor,
+          id: messageId,
+          isOriginal: true
+        })
       }
     }
     finally {
