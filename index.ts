@@ -127,13 +127,14 @@ async function app() {
             }
           }
 
+          let isQuote = false
           let quote: StoredMessage | undefined
           let atMeCounter = 0
           const processed = msg.messageChain.filter(x => {
             // 处理 @
             if (x.type === 'At') {
               // 避免转发回复时的 @
-              if (quote && x.target === botQQ) {
+              if ((quote || isQuote) && x.target === botQQ) {
                 return atMeCounter++ === 0
               }
               return true
@@ -142,6 +143,7 @@ async function app() {
             if (x.type !== 'Quote') {
               return true
             }
+            isQuote = true
             quote = stored.translate(x.id) || quote
             return false
           }).map(x => {
@@ -150,8 +152,8 @@ async function app() {
               return x
             }
 
-            if (x.target === botQQ) {
-              x = { ...x, target: quote?.author || botQQ }
+            if (x.target === botQQ && quote) {
+              x = { ...x, target: quote.author }
             }
 
             // 转发的消息不应该继续 @ 人，因为人可能并不在被转发的群
@@ -176,7 +178,7 @@ async function app() {
               processed.splice(1, 0, { type: 'Plain', text: '' })
             }
             const firstPlain = processed[1] as Plain
-            firstPlain.text = `${authorName}：` + firstPlain.text
+            firstPlain.text = `【${authorName}】` + firstPlain.text
           }
 
           try {
