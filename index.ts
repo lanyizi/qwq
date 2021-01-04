@@ -42,7 +42,7 @@ const parseConfig = () => {
   return parsed
 }
 
-const { qq, mahConfig, groups: groupNumbers } = parseConfig();
+const { qq: botQQ, mahConfig, groups: groupNumbers } = parseConfig();
 const mirai = new MiraiTs(mahConfig)
 
 type StoredMessage = {
@@ -75,7 +75,7 @@ class StoredMessages {
 
 async function app() {
   // 登录 QQ
-  await mirai.link(qq);
+  await mirai.link(botQQ);
 
   const groups = groupNumbers.map(group => ({
     group,
@@ -107,13 +107,27 @@ async function app() {
       const promises = groups
         .filter(({ group }) => group !== fromGroup)
         .map(async ({ group, stored, members }) => {
+          // 把 qq 转换成纯文本的时候，优先使用哪个群里的群名片
+          const qqToName = (qq: number) => {
+            const name = members.get(qq) || originalGroup?.members?.get(qq)
+            if (name !== undefined) {
+              return name
+            }
+            for (const { members } of groups) {
+              const found = members.get(qq)
+              if (found !== undefined) {
+                return found
+              }
+            }
+          }
+
           let quote: StoredMessage | undefined
           let atMeCounter = 0
           const processed = msg.messageChain.filter(x => {
             // 处理 @
             if (x.type === 'At') {
               // 避免转发回复时的 @
-              if (quote && x.target === qq) {
+              if (quote && x.target === botQQ) {
                 return atMeCounter++ === 0
               }
               return true
@@ -130,8 +144,8 @@ async function app() {
               return x
             }
 
-            if (x.target === qq) {
-              x = { ...x, target: quote?.author || qq }
+            if (x.target === botQQ) {
+              x = { ...x, target: quote?.author || botQQ }
             }
 
             // 转发的消息不应该继续 @ 人，因为人可能并不在被转发的群
@@ -140,25 +154,21 @@ async function app() {
             // 就算确实是为了回复的 @，假如转发的群里这个人不在，那也转成纯文本
             if (x.target !== quote?.author || !members.has(x.target)) {
               // 把 @ 转换成纯文本的时候，优先使用哪个群里的群名片
-              const searchFrom = originalGroup
-                ? [members, originalGroup.members]
-                : [members]
-              searchFrom.push(...groups.map(x => x.members))
-
-              let name = x.display
-              for (const members of searchFrom) {
-                const match = members.get(x.target)
-                if (match) {
-                  name = match
-                  break
-                }
-              }
-
+              const name = qqToName(x.target) || x.display
               return { type: 'Plain' as const, text: `@${name}` }
             }
 
             return x
           })
+
+          const authorName = qqToName(messageAuthor)
+          if(authorName !== undefined) {
+            if (processed[1]?.type !== 'Plain') {
+              processed.splice(1, 0, { type: 'Plain', text: '' })
+            }
+            const firstPlain = processed[1] as Plain
+            firstPlain.text = `${authorName}：` + firstPlain.text
+          }
 
           try {
             const sent = await mirai.api.sendGroupMessage(processed, group, quote?.id)
