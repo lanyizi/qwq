@@ -246,6 +246,23 @@ async function app() {
     }
   });
 
+  const reloadMemberList = async () => {
+    const releaseMutex = await mutex.acquire()
+    try {
+      await Promise.all(groups.map(g => g.updateMemberList()))
+    }
+    catch (e) {
+      console.warn(e)
+    }
+    finally {
+      releaseMutex()
+    }
+  }
+  mirai.on('MemberCardChangeEvent', reloadMemberList)
+  mirai.on('MemberJoinEvent', reloadMemberList)
+  mirai.on('MemberLeaveEventKick', reloadMemberList)
+  mirai.on('MemberLeaveEventQuit', reloadMemberList)
+  setInterval(reloadMemberList, 120 * 1000)
   // 开始监听
   mirai.listen();
 }
