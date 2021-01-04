@@ -166,9 +166,11 @@ async function app() {
             // 因此，除非是为了回复的 @，否则一律转成纯文本
             // 就算确实是为了回复的 @，假如转发的群里这个人不在，那也转成纯文本
             // 此外，假如是回复的 @，但是这并不是回复对象的那个群，那么也转成纯文本
+            // 此外，假如 @ 的是机器人自己，那么也转成纯文本
             if (x.target !== quote?.author ||
               !members.has(x.target) ||
-              !quote.isOriginal) {
+              !quote.isOriginal ||
+              x.target === botQQ) {
               // 把 @ 转换成纯文本的时候，优先使用哪个群里的群名片
               const name = qqToName(x.target) || x.display
               return { type: 'Plain' as const, text: `@${name}` }
