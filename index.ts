@@ -184,8 +184,9 @@ async function app() {
             if (processed[1]?.type !== 'Plain') {
               processed.splice(1, 0, { type: 'Plain', text: '' })
             }
-            const firstPlain = processed[1] as Plain
+            const firstPlain = { ...processed[1] } as Plain
             firstPlain.text = `【${authorName}】` + firstPlain.text
+            processed[1] = firstPlain
           }
 
           try {
