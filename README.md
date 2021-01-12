@@ -9,8 +9,11 @@
 ## 使用方法
 首先你需要拥有一个能够通过 HTTP API 访问的 Mirai 机器人
 （比如说，一个启用了 [mirai-api-http](https://github.com/project-mirai/mirai-api-http) 插件的 [Mirai Console](https://github.com/mamoe/mirai-console)）
-接下来需要编译 index.ts，可以通过 `tsc` 命令来执行（需要先安装 typescript 编译器）
+
+接下来需要编译 `index.ts`，可以通过 `tsc` 命令来执行（需要先安装 typescript 编译器）
+
 然后执行 `node index.js -c 配置文件.json` 即可。
+
 配置文件的格式可以参考这里：https://github.com/BSG-75/qwq/blob/main/index.ts#L28
 - `mahConfig` 指的是与 mirai-api-http 有关的配置，具体内容可以参考[这里](https://github.com/YunYouJun/mirai-ts#javascript)
 
