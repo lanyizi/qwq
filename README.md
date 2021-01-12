@@ -1,5 +1,5 @@
 # qwq
-一个非常简(jǐan)单(lòu)、基于[mirai-ts](https://github.com/YunYouJun/mirai-ts)的跨群转发消息机器人
+一个非常简(jǐan)单(lòu)、基于 [mirai-ts](https://github.com/YunYouJun/mirai-ts) 的跨群转发消息机器人
 
 这样的机器人到底有什么用呢，大概就是，可以把多个群，通过互相转发消息，“合并”成一个群吧 ←_←
 
